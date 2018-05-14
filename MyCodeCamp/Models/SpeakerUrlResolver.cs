@@ -6,18 +6,19 @@ using MyCodeCamp.Data.Entities;
 
 namespace MyCodeCamp.Models
 {
-    public class CampUrlResolver : IValueResolver<Camp, CampModel, string>
+    public class SpeakerUrlResolver : IValueResolver<Speaker, SpeakerModel, string>
     {
         private IHttpContextAccessor _httpcontextaccessor;
 
-        public CampUrlResolver(IHttpContextAccessor httpContextAccessor)
+        public SpeakerUrlResolver(IHttpContextAccessor httpContextAccessor)
         {
             _httpcontextaccessor = httpContextAccessor;
         }
-        public string Resolve(Camp source, CampModel destination, string destMember, ResolutionContext context)
+
+        public string Resolve(Speaker source, SpeakerModel destination, string destMember, ResolutionContext context)
         {
             var url = (IUrlHelper)_httpcontextaccessor.HttpContext.Items[BaseController.UrlHelper];
-            return url.Link("CampGet", new { moniker = source.Moniker });
+            return url.Link("SpeakerGet", new { moniker = source.Camp.Moniker, id = source.Id });
         }
     }
 }
