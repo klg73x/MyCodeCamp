@@ -31,16 +31,17 @@ namespace MyCodeCamp.Controllers
         }
 
         [HttpGet]
-        public IActionResult Get(string moniker)
+        public IActionResult Get(string moniker, bool includeTalks = false)
         {
-            var speakers = _repo.GetSpeakersByMoniker(moniker);
+            var speakers = includeTalks ? _repo.GetSpeakersByMonikerWithTalks(moniker) : _repo.GetSpeakersByMoniker(moniker);
             return Ok(_mapper.Map<IEnumerable<SpeakerModel>>(speakers));
         }
 
         [HttpGet("{id}", Name = "SpeakerGet")]
-        public IActionResult Get(string moniker, int id)
+        public IActionResult Get(string moniker, int id, bool includeTalks = false)
         {
-            var speaker = _repo.GetSpeaker(id);
+            var speaker = includeTalks ? _repo.GetSpeakerWithTalks(id) : _repo.GetSpeaker(id);
+
             if (speaker == null) return NotFound();
             if (speaker.Camp.Moniker != moniker) return BadRequest($"Speaker is not from the camp {moniker}");
             return Ok(_mapper.Map<SpeakerModel>(speaker));

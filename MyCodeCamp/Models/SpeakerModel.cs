@@ -22,5 +22,6 @@ namespace MyCodeCamp.Models
         [MaxLength(4000)]
         public string Bio { get; set; }
         public string HeadShotUrl { get; set; }
+        public ICollection<TalkModel> Talks { get; set; }
     }
 }
