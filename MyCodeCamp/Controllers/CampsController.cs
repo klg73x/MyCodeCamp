@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using MyCodeCamp.Data;
@@ -11,6 +12,7 @@ using System.Threading.Tasks;
 
 namespace MyCodeCamp.Controllers
 {
+    [EnableCors("AnyGET")] //This allows any user from any domain to execute the GETs in this controller
     [Route("api/[controller]")]
     [ValidateModel]
     public class CampsController : BaseController
@@ -60,6 +62,7 @@ namespace MyCodeCamp.Controllers
             return BadRequest();
         }
 
+        [EnableCors("Wildermuth")] //This allows people from wildermuth.com to use this post
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] CampModel model)
         {
