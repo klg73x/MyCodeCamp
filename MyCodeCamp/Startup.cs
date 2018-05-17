@@ -3,14 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MyCodeCamp.Data;
+using MyCodeCamp.Data.Entities;
 
 namespace MyCodeCamp
 {
@@ -39,8 +42,35 @@ namespace MyCodeCamp
             services.AddDbContext<CampContext>(ServiceLifetime.Scoped);
             services.AddScoped<ICampRepository, CampRepository>();
             services.AddTransient<CampDbInitializer>();
+            services.AddTransient<CampIdentityInitializer>();
             services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
             services.AddAutoMapper();
+
+            //This is for Authentication using Identity from a nuget package
+            services.AddIdentity<CampUser, IdentityRole>()
+                .AddEntityFrameworkStores<CampContext>();
+
+            services.Configure<IdentityOptions>(config => {
+                config.Cookies.ApplicationCookie.Events = new CookieAuthenticationEvents()
+                {
+                    OnRedirectToLogin = (ctx) =>
+                    {
+                        if (ctx.Request.Path.StartsWithSegments("/api") && ctx.Response.StatusCode == 200)
+                        {
+                            ctx.Response.StatusCode = 401;
+                        }
+                        return Task.CompletedTask;
+                    },
+                    OnRedirectToAccessDenied = (ctx) =>
+                    {
+                        if (ctx.Request.Path.StartsWithSegments("/api") && ctx.Response.StatusCode == 200)
+                        {
+                            ctx.Response.StatusCode = 403;
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
+            });
 
             //This is a straight usage of Cross Orgin calls on a Global Level. 
             //We are going to do it using policies to allow only the calls and controllers we want 
@@ -79,7 +109,9 @@ namespace MyCodeCamp
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, CampDbInitializer seeder)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, 
+            ILoggerFactory loggerFactory, CampDbInitializer seeder,
+            CampIdentityInitializer identitySeeder)
         {
             loggerFactory.AddConsole(_config.GetSection("Logging"));
             loggerFactory.AddDebug();
@@ -96,16 +128,17 @@ namespace MyCodeCamp
             //    // allow any
             //});
 
-            if (env.IsDevelopment())
-            {
-                app.UseDeveloperExceptionPage();
-            }
+            //This code protects the use of any MVC calls with getting Authorization because it is called
+            //before the UseMVC.
+            app.UseIdentity();
 
             app.UseMvc(config =>
             {
                 //config.MapRoute("MainAPIRoute", "api/{controller}/{action}");
             });
+          
             seeder.Seed().Wait();
+            identitySeeder.Seed().Wait();
         }
     }
 }

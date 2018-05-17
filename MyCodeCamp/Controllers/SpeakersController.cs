@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using MyCodeCamp.Data;
@@ -21,13 +23,15 @@ namespace MyCodeCamp.Controllers
         private ICampRepository _repo;
         private ILogger<SpeakersController> _logger;
         private IMapper _mapper;
+        private UserManager<CampUser> _userMgr;
 
         public SpeakersController(ICampRepository repo, ILogger<SpeakersController> logger,
-            IMapper mapper)
+            IMapper mapper, UserManager<CampUser> userMgr)
         {
             _repo = repo;
             _logger = logger;
             _mapper = mapper;
+            _userMgr = userMgr;
         }
 
         [HttpGet]
@@ -48,6 +52,7 @@ namespace MyCodeCamp.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<IActionResult> Post(string moniker, [FromBody] SpeakerModel model)
         {
             try
@@ -56,19 +61,26 @@ namespace MyCodeCamp.Controllers
                 if (camp == null) return BadRequest("Could not find camp");
                 var speaker = _mapper.Map<Speaker>(model);
                 speaker.Camp = camp;
-                _repo.Add(speaker);
 
-                if(await _repo.SaveAllAsync())
+                var campUser = await _userMgr.FindByNameAsync(this.User.Identity.Name);
+                if (campUser != null)
                 {
-                    var newUri = Url.Link("SpeakerGet", new { moniker = camp.Moniker, id = speaker.Id });
-                    return Created(newUri, _mapper.Map<SpeakerModel>(speaker));
+                    speaker.User = campUser;
+                    _repo.Add(speaker);
+
+                    if (await _repo.SaveAllAsync())
+                    {
+                        var newUri = Url.Link("SpeakerGet", new { moniker = camp.Moniker, id = speaker.Id });
+                        return Created(newUri, _mapper.Map<SpeakerModel>(speaker));
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Could not save Camp to the database.");
+                    }
                 }
-                else
-                {
-                    _logger.LogWarning("Could not save Camp to the database.");
-                }
+
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError($"Exception thrown while adding speaker: {ex}");
             }
@@ -76,6 +88,7 @@ namespace MyCodeCamp.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> Put(string moniker, int id, [FromBody] SpeakerModel model)
         {
             try
@@ -89,6 +102,10 @@ namespace MyCodeCamp.Controllers
                 if (oldspeaker.Camp.Moniker != moniker)
                 {
                     return BadRequest("That speaker is not from the camp supplied");
+                }
+                if (oldspeaker.User.UserName != this.User.Identity.Name)
+                {
+                    return Forbid();
                 }
                 _mapper.Map(model, oldspeaker);
 
@@ -110,6 +127,7 @@ namespace MyCodeCamp.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> Delete(string moniker, int id)
         {
             try
@@ -122,6 +140,10 @@ namespace MyCodeCamp.Controllers
                 if (oldspeaker.Camp.Moniker != moniker)
                 {
                     return BadRequest("That speaker is not from the camp supplied");
+                }
+                if (oldspeaker.User.UserName != this.User.Identity.Name)
+                {
+                    return Forbid();
                 }
 
                 _repo.Delete(oldspeaker);
