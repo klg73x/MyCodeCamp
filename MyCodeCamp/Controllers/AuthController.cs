@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using MyCodeCamp.Data;
 using MyCodeCamp.Data.Entities;
 using MyCodeCamp.Filters;
@@ -20,12 +24,19 @@ namespace MyCodeCamp.Controllers
         private CampContext _context;
         private SignInManager<CampUser> _signInMgr;
         private ILogger<CampsController> _logger;
+        private UserManager<CampUser> _userManager;
+        private IPasswordHasher<CampUser> _hasher;
 
-        public AuthController(CampContext context, SignInManager<CampUser> signInMgr, ILogger<CampsController> logger)
+        public AuthController(CampContext context, SignInManager<CampUser> signInMgr,
+            UserManager<CampUser> userManager,
+            IPasswordHasher<CampUser> hasher,
+            ILogger<CampsController> logger)
         {
             _context = context;
             _signInMgr = signInMgr;
             _logger = logger;
+            _userManager = userManager;
+            _hasher = hasher;
         }
 
         [HttpPost("api/auth/login")]
@@ -45,6 +56,45 @@ namespace MyCodeCamp.Controllers
                 _logger.LogError($"Threw an exception in the Login process: {ex}");
             }
             return BadRequest("Could not authenticate user");
+        }
+
+        [HttpPost("api/auth/token")]
+        [ValidateModel]
+        public async Task<IActionResult> CreateToken([FromBody] CredentialModel model)
+        {
+            try
+            {
+                var user = await _userManager.FindByNameAsync(model.UserName);
+                if (user != null)
+                {
+                    if (_hasher.VerifyHashedPassword(user, user.PasswordHash, model.Password) == PasswordVerificationResult.Success)
+                    {
+                        var claims = new[] {
+                            new Claim(JwtRegisteredClaimNames.Sub, user.UserName),
+                            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                        };
+                        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("NORMALLYGETTHISFROMSOMEWHERESECURE"));
+                        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+                        var token = new JwtSecurityToken(
+                            issuer: "http://mycodecamp.org",
+                            audience: "http://mycodecamp.org",
+                            claims: claims,
+                            expires: DateTime.UtcNow.AddMinutes(15), 
+                            signingCredentials: creds
+                            );
+
+                        return Ok(new {
+                            token = new JwtSecurityTokenHandler().WriteToken(token),
+                            expiration = token.ValidTo
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Threw an exception in the JWT token creation process: {ex}");
+            }
+            return BadRequest("Failed to generate token."); //Don't return a lot of info
         }
     }
 }
