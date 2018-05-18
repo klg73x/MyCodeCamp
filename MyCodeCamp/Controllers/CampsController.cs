@@ -65,6 +65,7 @@ namespace MyCodeCamp.Controllers
         }
 
         [EnableCors("Wildermuth")] //This allows people from wildermuth.com to use this post
+        [Authorize(Policy = "SuperUsers")]
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] CampModel model)
         {

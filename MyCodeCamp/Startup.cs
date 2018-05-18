@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -12,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using MyCodeCamp.Data;
 using MyCodeCamp.Data.Entities;
 
@@ -50,7 +52,8 @@ namespace MyCodeCamp
             services.AddIdentity<CampUser, IdentityRole>()
                 .AddEntityFrameworkStores<CampContext>();
 
-            services.Configure<IdentityOptions>(config => {
+            services.Configure<IdentityOptions>(config =>
+            {
                 config.Cookies.ApplicationCookie.Events = new CookieAuthenticationEvents()
                 {
                     OnRedirectToLogin = (ctx) =>
@@ -88,6 +91,11 @@ namespace MyCodeCamp
                     .WithMethods("GET")
                     .AllowAnyOrigin();
                 });
+            });
+
+            //This section is to grant authorization to use the API
+            services.AddAuthorization(cfg => {
+                cfg.AddPolicy("SuperUsers", p => p.RequireClaim("SuperUser", "True"));
             });
 
             // Add framework services.
@@ -131,6 +139,19 @@ namespace MyCodeCamp
             //This code protects the use of any MVC calls with getting Authorization because it is called
             //before the UseMVC.
             app.UseIdentity();
+
+            app.UseJwtBearerAuthentication(new JwtBearerOptions {
+                AutomaticAuthenticate = true,
+                AutomaticChallenge = true,
+                TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters()
+                {
+                    ValidIssuer = _config["Tokens:Issuer"],
+                    ValidAudience = _config["Tokens:Audience"],
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Tokens:Key"])),
+                    ValidateLifetime = true
+                }
+            });
 
             app.UseMvc(config =>
             {
