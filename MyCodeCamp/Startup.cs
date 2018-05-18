@@ -75,6 +75,13 @@ namespace MyCodeCamp
                 };
             });
 
+            //This section is for versioning. not sure if I need this or not
+            services.AddApiVersioning(cfg => {
+                cfg.DefaultApiVersion = new ApiVersion(1, 1);
+                cfg.AssumeDefaultVersionWhenUnspecified = true;
+                cfg.ReportApiVersions = true;
+            });
+
             //This is a straight usage of Cross Orgin calls on a Global Level. 
             //We are going to do it using policies to allow only the calls and controllers we want 
             //services.AddCors();

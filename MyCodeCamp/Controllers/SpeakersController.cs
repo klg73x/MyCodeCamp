@@ -18,12 +18,14 @@ namespace MyCodeCamp.Controllers
     [Produces("application/json")]
     [Route("api/camps/{moniker}/speakers")]
     [ValidateModel]
+    [ApiVersion("1.0")]
+    [ApiVersion("1.1")]
     public class SpeakersController : BaseController
     {
-        private ICampRepository _repo;
-        private ILogger<SpeakersController> _logger;
-        private IMapper _mapper;
-        private UserManager<CampUser> _userMgr;
+        protected ICampRepository _repo;
+        protected ILogger<SpeakersController> _logger;
+        protected IMapper _mapper;
+        protected UserManager<CampUser> _userMgr;
 
         public SpeakersController(ICampRepository repo, ILogger<SpeakersController> logger,
             IMapper mapper, UserManager<CampUser> userMgr)
@@ -35,10 +37,21 @@ namespace MyCodeCamp.Controllers
         }
 
         [HttpGet]
+
+        [MapToApiVersion("1.0")]
         public IActionResult Get(string moniker, bool includeTalks = false)
         {
             var speakers = includeTalks ? _repo.GetSpeakersByMonikerWithTalks(moniker) : _repo.GetSpeakersByMoniker(moniker);
             return Ok(_mapper.Map<IEnumerable<SpeakerModel>>(speakers));
+        }
+
+        [HttpGet]
+        [MapToApiVersion("1.1")]
+        public virtual IActionResult GetWithCount(string moniker, bool includeTalks = false)
+        {
+            var speakers = includeTalks ? _repo.GetSpeakersByMonikerWithTalks(moniker) : _repo.GetSpeakersByMoniker(moniker);
+            return Ok(new { count = speakers.Count(), results = _mapper.Map<IEnumerable<SpeakerModel>>(speakers) });
+
         }
 
         [HttpGet("{id}", Name = "SpeakerGet")]
