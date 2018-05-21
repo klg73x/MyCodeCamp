@@ -52,6 +52,8 @@ namespace MyCodeCamp
             services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
             services.AddAutoMapper();
 
+            services.AddMemoryCache();
+
             //This is for Authentication using Identity from a nuget package
             services.AddIdentity<CampUser, IdentityRole>()
                 .AddEntityFrameworkStores<CampContext>();
